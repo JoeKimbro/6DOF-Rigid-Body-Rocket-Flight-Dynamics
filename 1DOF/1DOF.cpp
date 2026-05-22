@@ -5,11 +5,11 @@
 void DOF1::run(RigidBody& body, Integrator& integrator) {
     std::cout << "First Degree of Freedom Simulation \n"; 
     std::cout << "Please input Dry Mass: \n";
-    std::cin >> body.dryMass;
+    std::cin >> body.props.dryMass;
     std::cout << "Please input Fuel Mass: \n";
-    std::cin >> body.fuelMass;
+    std::cin >> body.props.fuelMass;
     std::cout << "How fast does the engine burn fuel?: \n";
-    std::cin >> body.mass_flow_rate;
+    std::cin >> body.props.mass_flow_rate;
     int engineType; 
     std::cout << "Please Select Engine Type: \n";
     std::cout << "1. Solid rocket (APCP)\n";
@@ -41,19 +41,19 @@ void DOF1::run(RigidBody& body, Integrator& integrator) {
     std::cout << "Provide A (Cross Sectional reference Area) Coefficient: \n";
     std::cin >> body.A; 
     std::cout << "Provide Position / Starting Altitude (If not provided starting altitude will be at sea level): \n";
-    std::cin >> body.position; 
+    std::cin >> body.vertical.position;
     std::cout << "Time steps will be 0.01 seconds (dt), provide total time: \n";
-    std::cin >> total_time; 
+    std::cin >> total_time;
 
     int steps = static_cast<int>(total_time / integrator.dt);
-      for (int i = 0; i < steps; i++) {
-          integrator.step(body);
-          if (body.position <= 0) {break;}
-          std::cout << "t="    << i * integrator.dt
-                    << " pos=" << body.position
-                    << " vel=" << body.velocity
-                    << " mass=" << body.mass
-                    << "\n"; 
+    for (int i = 0; i < steps; i++) {
+        integrator.step(body);
+        if (body.vertical.position <= 0.0) break;
+        std::cout << "t="    << i * integrator.dt
+                  << " pos=" << body.vertical.position
+                  << " vel=" << body.vertical.velocity
+                  << " mass=" << body.props.mass
+                  << "\n";
     }             
 }
 
