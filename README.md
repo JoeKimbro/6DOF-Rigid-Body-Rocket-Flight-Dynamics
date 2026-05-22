@@ -6,7 +6,7 @@ Build a 6 Degree of Freedom (6DOF) rigid body rocket flight dynamics simulator f
 
 ## Goal
 
-A simulator that takes real rocket parameters as inputs and accurately predicts altitude, downrange distance, velocity, attitude, and flight phases from ignition through impact. I want to proceed with each DOF, up to the point of 3DOF there will be no user input, this is for ease of develop as there are many variables up to that point forward.  
+A simulator that takes real rocket parameters as inputs and simulates altitude, downrange distance, velocity, attitude, and flight phases from ignition through impact. I want to proceed with each DOF, up to the point of 3DOF there will be no user input, this is for ease of develop as there are many variables up to that point forward.  
 
 ---
 
@@ -39,7 +39,7 @@ A rocket launching vertically, burning fuel, coasting to apogee, and falling bac
 
 | Force | Equation | Notes |
 |---|---|---|
-| Gravity | `F = mass * -9.81` | Shrinks as fuel burns |
+| Gravity (force)| `F = mass * -9.81` | Shrinks as fuel burns |
 | Thrust | `T = mass_flow_rate * Ve` | Active only while fuel remains |
 | Drag | `F = -0.5 * rho * v² * Cd * A` | Always opposes velocity direction |
 
