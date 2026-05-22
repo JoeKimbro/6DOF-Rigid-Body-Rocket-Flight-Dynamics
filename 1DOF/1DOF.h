@@ -1,5 +1,5 @@
 #pragma once
-#include "RigidBody1DOF.h"
+#include "StateVariables/RigidBody.h"
 #include "Integrator1DOF.h"
 
 class DOF1 {

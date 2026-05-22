@@ -1,5 +1,5 @@
 #pragma once 
-#include "RigidBody1DOF.h"
+#include "StateVariables/RigidBody.h"
 
 class Integrator {
     private: 

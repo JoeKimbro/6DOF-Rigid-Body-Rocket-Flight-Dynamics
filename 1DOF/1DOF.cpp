@@ -20,26 +20,26 @@ void DOF1::run(RigidBody& body, Integrator& integrator) {
     std::cin >> engineType; 
     switch (engineType) {
         case 1:
-        body.Ve = 2500; break;
+        body.propul.Ve = 2500; break;
         case 2:
-        body.Ve = 3050; break;
+        body.propul.Ve = 3050; break;
         case 3: 
-        body.Ve = 4400; break;
+        body.propul.Ve = 4400; break;
         case 4: 
-        body.Ve = 2200;
+        body.propul.Ve = 2200;
             break;
         case 27: 
             std::cout << "Exiting...\n";
             break;
         default: 
             std::cout << "Please provide your measure of Ve: \n";
-            std::cin >> body.Ve; 
+            std::cin >> body.propul.Ve; 
             break;
     }
     std::cout << "Provide Drag Coefficient: \n";
-    std::cin >> body.Cd;
+    std::cin >> body.propul.Cd;
     std::cout << "Provide A (Cross Sectional reference Area) Coefficient: \n";
-    std::cin >> body.A; 
+    std::cin >> body.propul.A; 
     std::cout << "Provide Position / Starting Altitude (If not provided starting altitude will be at sea level): \n";
     std::cin >> body.vertical.position;
     std::cout << "Time steps will be 0.01 seconds (dt), provide total time: \n";
