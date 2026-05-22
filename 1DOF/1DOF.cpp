@@ -2,7 +2,7 @@
 #include "1DOF.h"
 // Now we calculate the first degree of freedom ( 'merica )
 
-void DOF1::run(RigidBody& body) {
+void DOF1::run(RigidBody& body, Integrator& integrator) {
     std::cout << "First Degree of Freedom Simulation \n"; 
     std::cout << "Please input Dry Mass: \n";
     std::cin >> body.dryMass;
@@ -44,7 +44,17 @@ void DOF1::run(RigidBody& body) {
     std::cin >> body.position; 
     std::cout << "Time steps will be 0.01 seconds (dt), provide total time: \n";
     std::cin >> total_time; 
-    
+
+    int steps = static_cast<int>(total_time / integrator.dt);
+      for (int i = 0; i < steps; i++) {
+          integrator.step(body);
+          if (body.position <= 0) {break;}
+          std::cout << "t="    << i * integrator.dt
+                    << " pos=" << body.position
+                    << " vel=" << body.velocity
+                    << " mass=" << body.mass
+                    << "\n"; 
+    }             
 }
 
 
