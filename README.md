@@ -6,7 +6,7 @@ Build a 6 Degree of Freedom (6DOF) rigid body rocket flight dynamics simulator f
 
 ## Goal
 
-A simulator that takes real rocket parameters as inputs and accurately predicts altitude, downrange distance, velocity, attitude, and flight phases from ignition through impact. I want to proceed with each DOF, up to the point of 3DOF there will be no user input, this is for ease of develop as there are many variables up to that point forward.  
+A simulator that takes real rocket parameters as inputs and simulates altitude, downrange distance, velocity, attitude, and flight phases from ignition through impact. I want to proceed with each DOF, up to the point of 3DOF there will be no user input, this is for ease of develop as there are many variables up to that point forward.  
 
 ---
 
