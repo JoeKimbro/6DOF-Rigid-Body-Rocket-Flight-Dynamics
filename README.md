@@ -39,7 +39,7 @@ A rocket launching vertically, burning fuel, coasting to apogee, and falling bac
 
 | Force | Equation | Notes |
 |---|---|---|
-| Gravity | `F = mass * -9.81` | Shrinks as fuel burns |
+| Gravity (force)| `F = mass * -9.81` | Shrinks as fuel burns |
 | Thrust | `T = mass_flow_rate * Ve` | Active only while fuel remains |
 | Drag | `F = -0.5 * rho * v² * Cd * A` | Always opposes velocity direction |
 
