@@ -13,8 +13,7 @@ void DOF2Integrator::stepDOF2(RigidBody& body) {
     body.horizontal.netForce = 0.0;
     // total velocity 
     body.vertical.netForce += body.props.mass * Constants::gravity; // gravity only affects y axis
-    double v_total = std::sqrt(body.vertical.velocity * body.vertical.velocity + body.horizontal.velocity * body.horizontal.velocity);
-    double drag_coeff = -0.5 * rho * v_total * body.propul.Cd * body.propul.A;
+    double drag_coeff = -0.5 * rho * body.v_total * body.propul.Cd * body.propul.A;
     body.vertical.netForce   += drag_coeff * body.vertical.velocity; // made drag_coeff cause redundant multiplacation
     body.horizontal.netForce += drag_coeff * body.horizontal.velocity;    // drag formula above seperated now x and y
     if (body.props.fuelMass > 0) {
@@ -27,6 +26,7 @@ void DOF2Integrator::stepDOF2(RigidBody& body) {
     body.horizontal.acceleration = body.horizontal.netForce / body.props.mass; 
     body.vertical.velocity += body.vertical.acceleration * dt;
     body.horizontal.velocity += body.horizontal.acceleration * dt;
+    body.v_total = std::sqrt(body.vertical.velocity * body.vertical.velocity + body.horizontal.velocity * body.horizontal.velocity);
     body.vertical.position += body.vertical.velocity * dt;
     body.horizontal.position += body.horizontal.velocity * dt;
 }

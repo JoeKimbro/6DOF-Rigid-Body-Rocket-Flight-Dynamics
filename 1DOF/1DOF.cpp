@@ -2,7 +2,7 @@
 #include "1DOF.h"
 // Now we calculate the first degree of freedom ( 'merica )
 
-void DOF1::run(RigidBody& body, Integrator& integrator) {
+void DOF1::run(RigidBody& body) {
     std::cout << "First Degree of Freedom Simulation \n"; 
     std::cout << "Please input Dry Mass: \n";
     std::cin >> body.props.dryMass;

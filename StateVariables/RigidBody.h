@@ -6,6 +6,7 @@
 // seperation of class variables for cleaner code, as these will changes frequently. Applied Struct
 struct RigidBody { 
     double theta = 0.0; 
+    double v_total = 0.0; 
     PropulsionProps propul;
     MassProperties props;
     LinearState    vertical;
