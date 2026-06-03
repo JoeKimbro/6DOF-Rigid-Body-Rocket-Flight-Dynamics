@@ -1,5 +1,19 @@
 #pragma once 
 
+
 struct AngularState {
-    double thurst
-}
+    double omega = 0.0; 
+    double pitch_acceleration = 0.0;
+    double AoA = 0.0; // Angle of attack, α = theta - atan2(vx, vy)
+    double M = 0.0; 
+    double theta_ddot = 0.0;  // angular acceleration 
+
+};
+
+/*
+theta_ddot = M / I_yy
+  omega     += theta_ddot * dt
+  theta     += omega * dt
+M = Cn_alpha * q_bar * A * L_ref * alpha * (CP - CG)
+θ̈ = M / I_yy
+*/

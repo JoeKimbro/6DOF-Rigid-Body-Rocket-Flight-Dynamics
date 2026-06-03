@@ -2,6 +2,7 @@
 #include "StateVariables/LinearState.h"
 #include "StateVariables/MassProperties.h"
 #include "StateVariables/Propulsion.h"
+#include "StateVariables/AngularState.h"
 
 // seperation of class variables for cleaner code, as these will changes frequently. Applied Struct
 struct RigidBody { 
@@ -11,4 +12,5 @@ struct RigidBody {
     MassProperties props;
     LinearState    vertical;
     LinearState horizontal; 
+    AngularState rotation;
 };
