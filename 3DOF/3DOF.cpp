@@ -1,6 +1,9 @@
+#define _USE_MATH_DEFINES
+#include <cmath>
 // body.theta = theta_deg * M_PI / 180.0;'
 #include <iostream>
 #include "3DOF.h"
+
 
 void DOF3::run(RigidBody& body) {
     std::cout << "Third Degree of Freedom Simulation \n"; 
@@ -44,8 +47,17 @@ void DOF3::run(RigidBody& body) {
     std::cin >> body.vertical.position;
     std::cout << "Time steps will be 0.01 seconds (dt), provide total time: \n";
     std::cin >> total_time;
-    std::cout << "Input launch angle: (what is theta?)\n";
-    std::cin >> body.theta;
+    std::cout << "Input launch angle: (angle from vertical, in degrees, 0 = straight up.)\n";
+    std::cin >> body.theta_deg;
+    body.theta = body.theta_deg * M_PI / 180.0;
+    std::cout << "Provide CP (Center of Pressure) Coefficient: \n";
+    std::cin >> body.propul.CP;
+    std::cout << "Provide CG (Center of Gravity) Coefficient: \n";
+    std::cin >> body.propul.CG;
+    std::cout << "Provide L_ref (Reference Length) Coefficient: \n";
+    std::cin >> body.propul.L_ref;
+    std::cout << "Provide Cn_alpha (Coefficient of Normal Force) Coefficient: \n";
+    std::cin >> body.propul.Cn_alpha;
 
     int steps = static_cast<int>(total_time / integrator.dt);
     for (int i = 0; i < steps; i++) {
@@ -58,6 +70,12 @@ void DOF3::run(RigidBody& body) {
                   << " horizontal velocity=" << body.horizontal.velocity
                   << " vertical velocity=" << body.vertical.velocity
                   << " total speed=" << body.v_total
+                  << " AoA=" << body.rotation.AoA
+                  << " N=" << body.props.N
+                  << " M=" << body.rotation.M
+                  << " theta=" << body.theta
+                  << " omega=" << body.rotation.omega
+                  << " theta_ddot=" << body.rotation.theta_ddot
                   << "\n";
     }             
 }

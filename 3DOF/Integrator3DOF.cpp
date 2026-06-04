@@ -37,7 +37,7 @@ void DOF3Integrator::stepDOF3(RigidBody& body) {
     body.vertical.position += body.vertical.velocity * dt;
     body.horizontal.position += body.horizontal.velocity * dt;
     // Pitching moment
-    body.rotation.M = body.propul.Cn_alpha * q_bar * body.propul.A * body.propul.L_ref * body.rotation.AoA * (body.propul.CP - body.propul.CG); 
+    body.rotation.M = body.propul.Cn_alpha * q_bar * body.propul.A * body.propul.L_ref * body.rotation.AoA * (body.propul.CP < body.propul.CG); 
     body.props.I_yy = (1.0/12.0) * body.props.mass * (body.propul.L_ref * body.propul.L_ref);
         // Angular acceleration
     body.rotation.theta_ddot = body.rotation.M / body.props.I_yy; 
