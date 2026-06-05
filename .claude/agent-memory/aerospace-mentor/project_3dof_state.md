@@ -5,29 +5,26 @@ metadata:
   type: project
 ---
 
-As of 2026-06-03 (branch: 3DOF, commit: "feat: Added physics for 3DOF; Need to add user inputs"):
+As of 2026-06-04 (branch: 3DOFwindows, commit: "feat: windows 3DOF"):
 
 **What exists in Integrator3DOF.cpp:**
-- Full 2DOF translational physics (gravity, drag, thrust decomposition) — copy of Integrator2DOF with rotational block appended
+- Full translational physics: gravity, drag (uses v_total from END of previous step), thrust decomposition via cos/sin(theta)
+- Normal force added to translational equations: `N = Cn_alpha * q_bar * A * AoA`, applied as `+N*cos(theta)` horizontal, `-N*sin(theta)` vertical
 - AoA computed: `body.rotation.AoA = body.theta - atan2(body.horizontal.velocity, body.vertical.velocity)`
 - Dynamic pressure: `q_bar = 0.5 * rho * v_total^2`
-- Pitching moment: `M = Cn_alpha * q_bar * A * L_ref * AoA * (CP - CG)`
+- Pitching moment: `M = Cn_alpha * q_bar * A * L_ref * AoA * (CP < CG)` — NOTE: boolean (CP < CG), not arithmetic (CP - CG)
 - I_yy computed per step: `(1/12) * mass * L_ref^2` (thin rod approximation, variable-mass aware)
 - Angular acceleration: `theta_ddot = M / I_yy`
 - Integration: `omega += theta_ddot * dt`, `theta += omega * dt`
+- User inputs for ALL 3DOF parameters including CP, CG, L_ref, Cn_alpha (added in windows 3DOF commit)
 
-**Known issues / physics gaps to surface to user:**
-1. CRITICAL — Sequencing bug: translational forces use the OLD theta (from previous step) to decompose thrust, but then theta is updated at the END of the same step. This is actually correct for Forward Euler (use state at start of step), but the user should be aware of it consciously.
-2. CRITICAL — AoA sign/convention: `atan2(v_horizontal, v_vertical)` gives the flight path angle from vertical. The sign of (CP - CG) determines whether the moment is restoring or destabilizing. If CP > CG (aerodynamically unstable), positive AoA produces a positive (diverging) moment. The user needs to understand this explicitly.
-3. MISSING — No aerodynamic normal force on translational equations: the pitching moment is computed, but the normal force (Cn_alpha * q_bar * A * AoA) that acts perpendicular to the velocity vector is NOT added to the force equations. 3DOF should have this.
-4. MISSING — Thrust vectoring / gimbal: theta updates but thrust decomposition uses theta, which now feeds back. This loop is implicitly present but the user may not have thought through the coupling.
-5. MISSING — User inputs for 3DOF-specific parameters: Cn_alpha, CP, CG, L_ref are declared in PropulsionProps but 3DOF.cpp does NOT prompt the user for them. They will be zero-initialized, making the entire rotational block a no-op (M = 0 always).
-6. MODELING NOTE — I_yy uses thin rod approximation. This is acceptable for learning but user should know it's an approximation and that I_yy changes as fuel burns (CG shifts too).
+**Known physics issues to surface to user:**
+1. Moment arm: code uses boolean `(CP < CG)` — moment is either full expression or zero. The sign of the arm is not encoded; a physically stabilizing vs. destabilizing rocket is toggled by which is larger, not captured in sign.
+2. AoA sign/convention: `atan2(v_horizontal, v_vertical)` gives flight path angle from vertical. User should understand what positive AoA means physically.
+3. v_total lag: drag and q_bar use v_total from END of previous step. On step 1 this is 0, so drag=0 and N=0 and M=0 on step 1. User must understand this is a feature of the code's ordering, not a bug.
+4. Moment arm physics: real stability requires CP > CG for an aerodynamically stable rocket. The code's (CP < CG) boolean means if user enters CP=0.3, CG=0.5, the boolean is true (1) and moment is active.
 
-**What the user's own comment table said was missing (bottom of Integrator3DOF.cpp):**
-The table is STALE — it says steps 1-5 are not implemented, but they actually ARE now implemented. The user implemented everything in the table but forgot to update their own status table. This is worth pointing out — their code is further along than their notes suggest.
-
-**Why:** Tracking this prevents re-explaining already-implemented physics and helps focus teaching on the real remaining gaps (normal force, user inputs for rotational params, sign/stability understanding).
-**How to apply:** When user asks "what's left," point to the 5 items above. The biggest functional blocker is item 5 (missing user inputs = rotational block silently does nothing).
+**Why:** Tracking this prevents re-explaining already-implemented physics and helps focus teaching on real remaining gaps.
+**How to apply:** When user asks "what's left," point to the 4 items above. The most pedagogically important issue is item 1 — moment arm sign physics.
 
 See also: [[user-profile]]

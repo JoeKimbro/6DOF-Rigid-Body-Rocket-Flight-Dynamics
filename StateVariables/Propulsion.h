@@ -7,6 +7,7 @@ struct PropulsionProps {
     double Ve = 0.0; // User will set theirs depending on the engine to make 1DOF easier 
     double Cn_alpha = 0.0; 
     double CP = 0.0;
+    double C_mq = 0.0;
     double CG = 0.0;
     double L_ref = 0.0; 
     double alpha = 0.0; 

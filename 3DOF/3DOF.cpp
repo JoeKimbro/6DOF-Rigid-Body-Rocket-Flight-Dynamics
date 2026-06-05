@@ -56,6 +56,8 @@ void DOF3::run(RigidBody& body) {
     std::cin >> body.propul.CG;
     std::cout << "Provide L_ref (Reference Length) Coefficient: \n";
     std::cin >> body.propul.L_ref;
+    std::cout << "Provide C_mq (Coefficient of Damping Moment) Coefficient: \n";
+    std::cin >> body.propul.C_mq;
     std::cout << "Provide Cn_alpha (Coefficient of Normal Force) Coefficient: \n";
     std::cin >> body.propul.Cn_alpha;
 

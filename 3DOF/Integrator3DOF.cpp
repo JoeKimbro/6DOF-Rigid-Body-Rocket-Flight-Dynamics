@@ -4,6 +4,7 @@
 #include "Integrator3DOF.h"
 #include "StateVariables/RigidBody.h"
 
+
 void DOF3Integrator::stepDOF3(RigidBody& body) {
     // for this we need to serpate a new variable for X's position, gravity, thrust, drag
     if (body.props.fuelMass < 0.0) body.props.fuelMass = 0.0;
@@ -37,13 +38,17 @@ void DOF3Integrator::stepDOF3(RigidBody& body) {
     body.vertical.position += body.vertical.velocity * dt;
     body.horizontal.position += body.horizontal.velocity * dt;
     // Pitching moment
-    body.rotation.M = body.propul.Cn_alpha * q_bar * body.propul.A * body.propul.L_ref * body.rotation.AoA * (body.propul.CP < body.propul.CG); 
+    body.rotation.M = body.propul.Cn_alpha * q_bar * body.propul.A * body.propul.L_ref * body.rotation.AoA * (body.propul.CP - body.propul.CG); 
+    ///The damping moment term: 
+    body.rotation.M += 0.25 * rho * body.v_total * body.propul.A * (body.propul.L_ref * body.propul.L_ref) * body.propul.C_mq * body.rotation.omega;
     body.props.I_yy = (1.0/12.0) * body.props.mass * (body.propul.L_ref * body.propul.L_ref);
         // Angular acceleration
     body.rotation.theta_ddot = body.rotation.M / body.props.I_yy; 
-    // Integrate rotation
+     // Integrate rotation
     body.rotation.omega += body.rotation.theta_ddot * dt;
     body.theta += body.rotation.omega * dt;
+  
+
 
 }  
 
