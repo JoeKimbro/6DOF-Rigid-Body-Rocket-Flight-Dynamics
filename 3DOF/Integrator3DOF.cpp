@@ -47,8 +47,6 @@ void DOF3Integrator::stepDOF3(RigidBody& body) {
      // Integrate rotation
     body.rotation.omega += body.rotation.theta_ddot * dt;
     body.theta += body.rotation.omega * dt;
-  
-
 
 }  
 
