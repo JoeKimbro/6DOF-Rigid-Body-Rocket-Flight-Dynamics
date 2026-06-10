@@ -11,7 +11,11 @@ Deriv DOF4Integrator::physics(RigidBody& s) {
     if (s.props.fuelMass < 0.0) s.props.fuelMass = 0.0;
     s.props.mass = s.props.dryMass + s.props.fuelMass;
     s.v_total = std::sqrt(s.vertical.velocity * s.vertical.velocity +
+<<<<<<< HEAD
                           s.horizontal.velocity * s.horizontal.velocity);
+=======
+                          s.horizontal.velocity * s.horizontal.velocity + s.depth.velocity * s.depth.velocity); // add Z velocity sqrd
+>>>>>>> 09cdb2815b398c52b0d5a24fb6a8564e80ee6a3a
 
     // Thrust is only produced while there is fuel left to burn.
     double thrust = 0.0;
@@ -23,25 +27,50 @@ Deriv DOF4Integrator::physics(RigidBody& s) {
     s.propul.thrust = thrust;
 
     // --- Force summation (identical to 3DOF) ---
+<<<<<<< HEAD
     double Fy = 0.0, Fx = 0.0;
+=======
+    double Fy = 0.0, Fx = 0.0, Fz = 0.0;
+>>>>>>> 09cdb2815b398c52b0d5a24fb6a8564e80ee6a3a
     Fy += s.props.mass * Constants::gravity;                       // gravity (y only)
 
     double drag_coeff = -0.5 * rho * s.v_total * s.propul.Cd * s.propul.A;
     Fy += drag_coeff * s.vertical.velocity;                        // drag opposes velocity
     Fx += drag_coeff * s.horizontal.velocity;
+<<<<<<< HEAD
 
     Fy += thrust * std::cos(s.theta);                              // thrust along body axis
     Fx += thrust * std::sin(s.theta);
+=======
+    Fz += drag_coeff * s.depth.velocity;
+    double Ty = thrust * std::cos(s.theta);   // vertical part
+    double Th = thrust * std::sin(s.theta);   // horizontal magnitude
+    Fy += Ty;
+    Fx += Th * std::cos(s.phi);
+    Fz += Th * std::sin(s.phi);
+>>>>>>> 09cdb2815b398c52b0d5a24fb6a8564e80ee6a3a
 
     double q_bar = 0.5 * rho * s.v_total * s.v_total;              // dynamic pressure
     s.rotation.AoA = s.theta - std::atan2(s.horizontal.velocity, s.vertical.velocity);
     s.props.N = s.propul.Cn_alpha * q_bar * s.propul.A * s.rotation.AoA; // normal force
+<<<<<<< HEAD
     Fx += s.props.N * std::cos(s.theta);
     Fy -= s.props.N * std::sin(s.theta);
+=======
+    double Nh = s.props.N * std::cos(s.theta);   // horizontal part of normal force
+    Fx += Nh * std::cos(s.phi);
+    Fz += Nh * std::sin(s.phi);
+    Fy -= s.props.N * std::sin(s.theta);   
+>>>>>>> 09cdb2815b398c52b0d5a24fb6a8564e80ee6a3a
 
     s.vertical.netForce      = Fy;
     s.horizontal.netForce    = Fx;
     s.vertical.acceleration  = Fy / s.props.mass;
+<<<<<<< HEAD
+=======
+    s.depth.netForce     = Fz;      
+    s.depth.acceleration = Fz / s.props.mass;
+>>>>>>> 09cdb2815b398c52b0d5a24fb6a8564e80ee6a3a
     s.horizontal.acceleration = Fx / s.props.mass;
 
     // --- Pitching moment + aerodynamic damping ---
@@ -58,9 +87,18 @@ Deriv DOF4Integrator::physics(RigidBody& s) {
     d.dvy    = s.vertical.acceleration;
     d.dx     = s.horizontal.velocity;
     d.dvx    = s.horizontal.acceleration;
+<<<<<<< HEAD
     d.dtheta = s.rotation.omega;
     d.domega = s.rotation.theta_ddot;
     d.dfuel  = dfuel;
+=======
+    d.dz  = s.depth.velocity;       
+    d.dvz = s.depth.acceleration; 
+    d.dtheta = s.rotation.omega;
+    d.domega = s.rotation.theta_ddot;
+    d.dfuel  = dfuel;
+    // add azimuth?
+>>>>>>> 09cdb2815b398c52b0d5a24fb6a8564e80ee6a3a
     return d;
 }
 
@@ -74,6 +112,11 @@ RigidBody DOF4Integrator::advance(const RigidBody& base, const Deriv& k, double 
     s.theta               += h * k.dtheta;
     s.rotation.omega      += h * k.domega;
     s.props.fuelMass      += h * k.dfuel;
+<<<<<<< HEAD
+=======
+    s.depth.position += h * k.dz;   
+    s.depth.velocity += h * k.dvz;
+>>>>>>> 09cdb2815b398c52b0d5a24fb6a8564e80ee6a3a
     return s;
 }
 
@@ -93,6 +136,11 @@ void DOF4Integrator::stepDOF4(RigidBody& body) {
     body.theta               += w * (k1.dtheta + 2.0 * k2.dtheta + 2.0 * k3.dtheta + k4.dtheta);
     body.rotation.omega      += w * (k1.domega + 2.0 * k2.domega + 2.0 * k3.domega + k4.domega);
     body.props.fuelMass      += w * (k1.dfuel  + 2.0 * k2.dfuel  + 2.0 * k3.dfuel  + k4.dfuel);
+<<<<<<< HEAD
+=======
+    body.depth.position += w * (k1.dz  + 2.0*k2.dz  + 2.0*k3.dz + k4.dz);
+    body.depth.velocity += w * (k1.dvz + 2.0*k2.dvz + 2.0*k3.dvz + k4.dvz);
+>>>>>>> 09cdb2815b398c52b0d5a24fb6a8564e80ee6a3a
 
     if (body.props.fuelMass < 0.0) body.props.fuelMass = 0.0;
     body.props.mass = body.props.dryMass + body.props.fuelMass;

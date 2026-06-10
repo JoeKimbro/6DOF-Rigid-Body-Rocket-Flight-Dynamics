@@ -9,9 +9,18 @@ struct Deriv {
     double dvy    = 0.0; // d(vertical.velocity)/dt   = Fy / mass
     double dx     = 0.0; // d(horizontal.position)/dt = horizontal.velocity
     double dvx    = 0.0; // d(horizontal.velocity)/dt = Fx / mass
+<<<<<<< HEAD
     double dtheta = 0.0; // d(theta)/dt               = omega
     double domega = 0.0; // d(omega)/dt               = M / I_yy
     double dfuel  = 0.0; // d(fuelMass)/dt            = -mass_flow_rate (while burning)
+=======
+    double dz = 0.0;
+    double dvz = 0.0;
+    double dtheta = 0.0; // d(theta)/dt               = omega
+    double domega = 0.0; // d(omega)/dt               = M / I_yy
+    double dfuel  = 0.0; // d(fuelMass)/dt            = -mass_flow_rate (while burning)
+    // add azimuth?
+>>>>>>> 09cdb2815b398c52b0d5a24fb6a8564e80ee6a3a
 };
 
 class DOF4Integrator {
