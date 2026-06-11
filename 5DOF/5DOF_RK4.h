@@ -4,7 +4,7 @@
 // The time-derivative of every variable in the 4DOF state vector.
 // RK4 evaluates these at four trial states per step, so they are kept
 // separate from the RigidBody (the "truth") and never committed directly.
-struct Deriv {
+struct Deriv5DOF {
     double dy     = 0.0; // d(vertical.position)/dt   = vertical.velocity
     double dvy    = 0.0; // d(vertical.velocity)/dt   = Fy / mass
     double dx     = 0.0; // d(horizontal.position)/dt = horizontal.velocity
@@ -28,14 +28,14 @@ class DOF5Integrator {
         // `s`, and returns the derivatives of the integrated state vector. It never
         // touches the integrated variables themselves (position/velocity/theta/
         // omega/fuelMass), only quantities derived from them.
-        Deriv physics(RigidBody& s);
+        Deriv5DOF physics(RigidBody& s);
 
         // Pure wrapper used for RK4 trial sampling: `s` is a throwaway copy, so the
         // diagnostic writes inside physics() are discarded and the master is untouched.
-        Deriv evaluate(RigidBody s) { return physics(s); }
+        Deriv5DOF evaluate(RigidBody s) { return physics(s); }
 
         // Build a trial state: base state advanced by (h * k) along each axis.
-        RigidBody advance(const RigidBody& base, const Deriv& k, double h);
+        RigidBody advance(const RigidBody& base, const Deriv5DOF& k, double h);
 
     public:
         double dt = 0.01;

@@ -3,7 +3,7 @@
 #include "StateVariables/constants.h"
 #include "5DOF_RK4.h"
 
-Deriv DOF5Integrator::physics(RigidBody& s) {
+Deriv5DOF DOF5Integrator::physics(RigidBody& s) {
     if (s.props.fuelMass < 0.0) s.props.fuelMass = 0.0;
     s.props.mass = s.props.dryMass + s.props.fuelMass;
     s.v_total = std::sqrt(s.vertical.velocity * s.vertical.velocity +
@@ -33,18 +33,28 @@ Deriv DOF5Integrator::physics(RigidBody& s) {
     Fz += Th * std::sin(s.phi);
 
     double q_bar = 0.5 * rho * s.v_total * s.v_total;              // dynamic pressure
-    // 1. Calculate aerodynamic angles for both planes first
+    // Aerodynamic angles: each body angle vs velocity angle in the same plane
     s.rotation.AoA = s.theta - std::atan2(s.horizontal.velocity, s.vertical.velocity);
-    s.rotation.Sideslip = s.phi - std::atan2(s.depth.velocity, s.vertical.velocity);
+    const double v_h = std::sqrt(s.horizontal.velocity * s.horizontal.velocity +
+                                 s.depth.velocity * s.depth.velocity);
+    if (v_h > 1e-6) {
+        s.rotation.Sideslip = s.phi - std::atan2(s.depth.velocity, s.horizontal.velocity);
+    } else {
+        s.rotation.Sideslip = 0.0;
+    }
 
-// 2. Separate normal forces into Pitch-plane and Yaw-plane components
     double N_pitch = s.propul.Cn_alpha * q_bar * s.propul.A * s.rotation.AoA;
     double N_yaw   = s.propul.Cn_alpha * q_bar * s.propul.A * s.rotation.Sideslip;
 
-// 3. Apply isolated aerodynamic forces directly to their respective global axes
-    Fx += N_pitch * std::cos(s.theta);
-    Fz += N_yaw * std::cos(s.phi);
+    // Pitch normal: vertical + horizontal, then rotate horizontal by azimuth (same as thrust)
+    const double N_pitch_h = N_pitch * std::cos(s.theta);
     Fy -= N_pitch * std::sin(s.theta);
+    Fx += N_pitch_h * std::cos(s.phi);
+    Fz += N_pitch_h * std::sin(s.phi);
+
+    // Yaw normal: horizontal side force, rotated by azimuth
+    Fx += -N_yaw * std::sin(s.phi);
+    Fz +=  N_yaw * std::cos(s.phi);
 
     s.vertical.netForce      = Fy;
     s.horizontal.netForce    = Fx;
@@ -71,7 +81,7 @@ Deriv DOF5Integrator::physics(RigidBody& s) {
     
 
     // --- Package the derivatives of the state vector ---
-    Deriv d;
+    Deriv5DOF d;
     d.dy     = s.vertical.velocity;
     d.dvy    = s.vertical.acceleration;
     d.dx     = s.horizontal.velocity;
@@ -89,7 +99,7 @@ Deriv DOF5Integrator::physics(RigidBody& s) {
 }
 
 // Returns a copy of `base` nudged forward by (h * k) along every state variable.
-RigidBody DOF5Integrator::advance(const RigidBody& base, const Deriv& k, double h) {
+RigidBody DOF5Integrator::advance(const RigidBody& base, const Deriv5DOF& k, double h) {
     RigidBody s = base;                       // copies ALL parameters unchanged
     s.vertical.position   += h * k.dy;
     s.vertical.velocity   += h * k.dvy;
@@ -107,10 +117,10 @@ RigidBody DOF5Integrator::advance(const RigidBody& base, const Deriv& k, double 
 
 void DOF5Integrator::stepDOF5(RigidBody& body) {
     // Four slope samples: start, two midpoints, and the endpoint.
-    Deriv k1 = evaluate(body);
-    Deriv k2 = evaluate(advance(body, k1, dt * 0.5));
-    Deriv k3 = evaluate(advance(body, k2, dt * 0.5));
-    Deriv k4 = evaluate(advance(body, k3, dt));
+    Deriv5DOF k1 = evaluate(body);
+    Deriv5DOF k2 = evaluate(advance(body, k1, dt * 0.5));
+    Deriv5DOF k3 = evaluate(advance(body, k2, dt * 0.5));
+    Deriv5DOF k4 = evaluate(advance(body, k3, dt));
 
     // Weighted average of the four slopes: (k1 + 2*k2 + 2*k3 + k4) / 6.
     const double w = dt / 6.0;
