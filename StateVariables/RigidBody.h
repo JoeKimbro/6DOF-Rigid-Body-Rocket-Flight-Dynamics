@@ -10,6 +10,7 @@ struct RigidBody {
     double theta_deg = 0.0;
     double v_total = 0.0;
     double phi = 0.0; 
+    double phi_deg = 0.0;
     PropulsionProps propul;
     MassProperties props;
     LinearState    vertical;

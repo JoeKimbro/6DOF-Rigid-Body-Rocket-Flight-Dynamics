@@ -1,13 +1,9 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include "StateVariables/constants.h"
-#include "4DOF_RK4.h"
+#include "5DOF_RK4.h"
 
-// Same 3DOF physics, reorganized into one routine that computes forces/moments
-// and returns the state derivatives. Called by reference here; RK4 reaches it
-// through evaluate() (by value) so trial samples never corrupt the real rocket,
-// while run() reaches it through refresh() to repopulate the master's printables.
-Deriv DOF4Integrator::physics(RigidBody& s) {
+Deriv DOF5Integrator::physics(RigidBody& s) {
     if (s.props.fuelMass < 0.0) s.props.fuelMass = 0.0;
     s.props.mass = s.props.dryMass + s.props.fuelMass;
     s.v_total = std::sqrt(s.vertical.velocity * s.vertical.velocity +
@@ -37,12 +33,18 @@ Deriv DOF4Integrator::physics(RigidBody& s) {
     Fz += Th * std::sin(s.phi);
 
     double q_bar = 0.5 * rho * s.v_total * s.v_total;              // dynamic pressure
+    // 1. Calculate aerodynamic angles for both planes first
     s.rotation.AoA = s.theta - std::atan2(s.horizontal.velocity, s.vertical.velocity);
-    s.props.N = s.propul.Cn_alpha * q_bar * s.propul.A * s.rotation.AoA; // normal force
-    double Nh = s.props.N * std::cos(s.theta);   // horizontal part of normal force
-    Fx += Nh * std::cos(s.phi);
-    Fz += Nh * std::sin(s.phi);
-    Fy -= s.props.N * std::sin(s.theta);   
+    s.rotation.Sideslip = s.phi - std::atan2(s.depth.velocity, s.vertical.velocity);
+
+// 2. Separate normal forces into Pitch-plane and Yaw-plane components
+    double N_pitch = s.propul.Cn_alpha * q_bar * s.propul.A * s.rotation.AoA;
+    double N_yaw   = s.propul.Cn_alpha * q_bar * s.propul.A * s.rotation.Sideslip;
+
+// 3. Apply isolated aerodynamic forces directly to their respective global axes
+    Fx += N_pitch * std::cos(s.theta);
+    Fz += N_yaw * std::cos(s.phi);
+    Fy -= N_pitch * std::sin(s.theta);
 
     s.vertical.netForce      = Fy;
     s.horizontal.netForce    = Fx;
@@ -54,10 +56,19 @@ Deriv DOF4Integrator::physics(RigidBody& s) {
     // --- Pitching moment + aerodynamic damping ---
     s.rotation.M = s.propul.Cn_alpha * q_bar * s.propul.A * s.propul.L_ref *
                    s.rotation.AoA * (s.propul.CP - s.propul.CG);
-    s.rotation.M += 0.25 * rho * s.v_total * s.propul.A *
-                    (s.propul.L_ref * s.propul.L_ref) * s.propul.C_mq * s.rotation.omega;
+    s.rotation.M -= 0.25 * rho * s.v_total * s.propul.A * (s.propul.L_ref * s.propul.L_ref) * s.propul.C_mq * s.rotation.omega;
     s.props.I_yy = (1.0 / 12.0) * s.props.mass * (s.propul.L_ref * s.propul.L_ref);
     s.rotation.theta_ddot = s.rotation.M / s.props.I_yy;
+
+    // Aerodynamic restoring yawing moment
+    s.rotation.M_yaw = s.propul.Cn_alpha * q_bar * s.propul.A * s.propul.L_ref * s.rotation.Sideslip * (s.propul.CP - s.propul.CG); 
+    // Aerodynamic yaw damping (opposes yaw rotation rate)
+    s.rotation.M_yaw -= 0.25 * rho * s.v_total * s.propul.A * (s.propul.L_ref * s.propul.L_ref) * s.propul.C_mq * s.rotation.omega_phi;
+    // Assuming a symmetric cylindrical rocket body where I_zz around the yaw axis equals I_yy
+    s.rotation.phi_ddot = s.rotation.M_yaw  / s.props.I_yy; 
+    s.rotation.N_pitch = s.propul.Cn_alpha * q_bar * s.propul.A * s.rotation.AoA;
+    s.rotation.N_yaw   = s.propul.Cn_alpha * q_bar * s.propul.A * s.rotation.Sideslip;
+    
 
     // --- Package the derivatives of the state vector ---
     Deriv d;
@@ -70,12 +81,15 @@ Deriv DOF4Integrator::physics(RigidBody& s) {
     d.dtheta = s.rotation.omega;
     d.domega = s.rotation.theta_ddot;
     d.dfuel  = dfuel;
+    d.dphi = s.rotation.omega_phi;    
+    d.domega_phi = s.rotation.phi_ddot;
+    
     // add azimuth?
     return d;
 }
 
 // Returns a copy of `base` nudged forward by (h * k) along every state variable.
-RigidBody DOF4Integrator::advance(const RigidBody& base, const Deriv& k, double h) {
+RigidBody DOF5Integrator::advance(const RigidBody& base, const Deriv& k, double h) {
     RigidBody s = base;                       // copies ALL parameters unchanged
     s.vertical.position   += h * k.dy;
     s.vertical.velocity   += h * k.dvy;
@@ -86,10 +100,12 @@ RigidBody DOF4Integrator::advance(const RigidBody& base, const Deriv& k, double 
     s.props.fuelMass      += h * k.dfuel;
     s.depth.position += h * k.dz;   
     s.depth.velocity += h * k.dvz;
+    s.phi += h * k.dphi; 
+    s.rotation.omega_phi += h * k.domega_phi;
     return s;
 }
 
-void DOF4Integrator::stepDOF4(RigidBody& body) {
+void DOF5Integrator::stepDOF5(RigidBody& body) {
     // Four slope samples: start, two midpoints, and the endpoint.
     Deriv k1 = evaluate(body);
     Deriv k2 = evaluate(advance(body, k1, dt * 0.5));
@@ -107,12 +123,9 @@ void DOF4Integrator::stepDOF4(RigidBody& body) {
     body.props.fuelMass      += w * (k1.dfuel  + 2.0 * k2.dfuel  + 2.0 * k3.dfuel  + k4.dfuel);
     body.depth.position += w * (k1.dz  + 2.0*k2.dz  + 2.0*k3.dz + k4.dz);
     body.depth.velocity += w * (k1.dvz + 2.0*k2.dvz + 2.0*k3.dvz + k4.dvz);
+    body.phi += w * (k1.dphi + 2.0 * k2.dphi + 2.0 * k3.dphi + k4.dphi);
+    body.rotation.omega_phi += w * (k1.domega_phi + 2.0 * k2.domega_phi + 2.0 * k3.domega_phi + k4.domega_phi);
 
     if (body.props.fuelMass < 0.0) body.props.fuelMass = 0.0;
     body.props.mass = body.props.dryMass + body.props.fuelMass;
-
-    // NOTE: the integrated state (position/velocity/theta/omega/fuelMass/mass) is now
-    // correct. The diagnostic fields (netForce, accel, AoA, N, M, I_yy, v_total) are
-    // still from the last trial sample because evaluate() is pure-by-value. They don't
-    // affect the trajectory; refresh them for printing when run() is written.
 }

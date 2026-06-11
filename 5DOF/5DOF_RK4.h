@@ -14,10 +14,12 @@ struct Deriv {
     double dtheta = 0.0; // d(theta)/dt               = omega
     double domega = 0.0; // d(omega)/dt               = M / I_yy
     double dfuel  = 0.0; // d(fuelMass)/dt            = -mass_flow_rate (while burning)
+    double dphi = 0.0; // yaw angle
+    double domega_phi = 0.0; // yaw rate 
     // add azimuth?
 };
 
-class DOF4Integrator {
+class DOF5Integrator {
     private:
         double rho = 1.225; // air density (static, as in earlier stages)
 
@@ -37,7 +39,7 @@ class DOF4Integrator {
 
     public:
         double dt = 0.01;
-        void stepDOF4(RigidBody& body);
+        void stepDOF5(RigidBody& body);
 
         // Recompute the force/diagnostic fields on the master state so run() can
         // print live AoA/N/M/etc. after a step. Discards the returned derivatives.

@@ -7,7 +7,8 @@ struct AngularState {
     double AoA = 0.0; // Angle of attack, α = theta - atan2(vx, vy)
     double M = 0.0; 
     double theta_ddot = 0.0;  // angular acceleration 
-
+    double omega_phi = 0.0; 
+    double phi_ddot = 0.0; 
 };
 
 /*
