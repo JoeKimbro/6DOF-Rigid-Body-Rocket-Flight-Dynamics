@@ -1,11 +1,11 @@
 #pragma once
 #include "StateVariables/RigidBody.h"
-#include "Integrator1DOF.h"
 #include "StateVariables/FlightSim.h"
+#include "5DOF_RK4.h"
 
-class DOF1 : public FlightSim {
-    private: Integrator integrator;
+class DOF5 : public FlightSim {
+    private: DOF5Integrator integrator;
     public:
         double total_time = 0.0;
         void run(RigidBody& body);
-};  
+};
