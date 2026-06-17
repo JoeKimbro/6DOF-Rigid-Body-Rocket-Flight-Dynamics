@@ -1,2 +1,0 @@
-- [User Profile](user_profile.md) — learning flight dynamics from scratch, incremental builder, C++, Socratic teaching style
-- [3DOF Physics State](project_3dof_state.md) — what's implemented, what has bugs, what's missing as of 2026-06-03

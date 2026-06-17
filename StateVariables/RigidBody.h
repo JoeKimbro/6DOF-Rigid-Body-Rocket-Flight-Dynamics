@@ -3,6 +3,7 @@
 #include "StateVariables/MassProperties.h"
 #include "StateVariables/Propulsion.h"
 #include "StateVariables/AngularState.h"
+#include "StateVariables/6DOFStates.h"
 
 // seperation of class variables for cleaner code, as these will changes frequently. Applied Struct
 struct RigidBody { 
@@ -17,4 +18,6 @@ struct RigidBody {
     LinearState horizontal; 
     LinearState depth; 
     AngularState rotation;
+    DOF6states sixStates; 
+    
 };
