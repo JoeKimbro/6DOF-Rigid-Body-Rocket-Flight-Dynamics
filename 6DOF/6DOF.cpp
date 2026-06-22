@@ -88,11 +88,16 @@ void DOF6::run(RigidBody& body) {
         std::cout << "Please provide another value for Radius";
         std::cin >> body.props.radius;
     }
+    double fin_cant_deg = 0.0;
+    std::cout << "Provide fin cant angle for roll (degrees, 0 = no roll): \n";
+    std::cin >> fin_cant_deg;
+    body.propul.fin_cant = fin_cant_deg * M_PI / 180.0;
     int steps = static_cast<int>(total_time / integrator.dt);
     for (int i = 0; i < steps; i++) {
         integrator.stepDOF6(body);   // RK4 advances the integrated state vector
         integrator.refresh(body);    // recompute forces/diagnostics at the new state
         if (body.vertical.position <= 0.0) break;
+        if (i % 5 != 0) continue;    // print every 5th step (~0.01 s) to keep output readable
         std::cout << "t="    << i * integrator.dt
                   << " mass=" << body.props.mass
                   << " horizontal position=" << body.horizontal.position

@@ -27,7 +27,8 @@ struct Deriv6DOF {
 
 class DOF6Integrator {
     private:
-        double rho = 1.225; // air density (static, as in earlier stages)
+        // air density is now computed per-step from altitude (ISA model in
+        // Constants::airDensity), so there is no static rho member.
 
         // Core physics for one state. Computes all forces/moments, writes the derived
         // & diagnostic fields (netForce, accel, AoA, N, M, I_yy, v_total, ...) into
@@ -44,7 +45,10 @@ class DOF6Integrator {
         RigidBody advance(const RigidBody& base, const Deriv6DOF& k, double h);
 
     public:
-        double dt = 0.01;
+        // 0.002 s: small enough to resolve the gyroscopic nutation of a
+        // fast-spinning body. At 0.01 s a rolling rocket's nutation outruns the
+        // step and RK4 diverges to NaN.
+        double dt = 0.002;
         void stepDOF6(RigidBody& body);
 
         // Recompute the force/diagnostic fields on the master state so run() can

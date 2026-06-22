@@ -9,6 +9,9 @@ Deriv6DOF DOF6Integrator::physics(RigidBody& s) {
     s.v_total = std::sqrt(s.vertical.velocity * s.vertical.velocity +
                           s.horizontal.velocity * s.horizontal.velocity + s.depth.velocity * s.depth.velocity); // add Z velocity sqrd
 
+    // Air density now varies with altitude (ISA model) instead of a fixed 1.225.
+    const double rho = Constants::airDensity(s.vertical.position);
+
     // Thrust is only produced while there is fuel left to burn.
     double thrust = 0.0;
     double dfuel  = 0.0;
@@ -69,7 +72,9 @@ Deriv6DOF DOF6Integrator::physics(RigidBody& s) {
     s.depth.acceleration      = Fz / s.props.mass;
 
     // --- Moments about the body axes ---
-    s.props.I_yy = (1.0 / 12.0) * s.props.mass * (s.propul.L_ref * s.propul.L_ref);
+    // Solid-cylinder transverse inertia: (1/12) m L^2 (slender term) + (1/4) m r^2.
+    s.props.I_yy = s.props.mass * ((1.0 / 12.0) * (s.propul.L_ref * s.propul.L_ref) +
+                                   0.25 * (s.props.radius * s.props.radius));
     const double I_t = s.props.I_yy;                                        // transverse (pitch = yaw)
     const double I_x = 0.5 * s.props.mass * s.props.radius * s.props.radius; // axial (roll)
 
@@ -77,16 +82,22 @@ Deriv6DOF DOF6Integrator::physics(RigidBody& s) {
     const double damp = 0.25 * rho * s.v_total * s.propul.A *
                         (s.propul.L_ref * s.propul.L_ref) * s.propul.C_mq;
 
-    // Static restoring moment (CP behind CG => stabilizing) + rate damping, now
-    // driven by the BODY rates q (pitch) and r (yaw) instead of theta/phi rates.
-    s.rotation.M     = N_pitch * s.propul.L_ref * (s.propul.CG - s.propul.CP) - damp * q;
-    s.rotation.M_yaw = N_yaw   * s.propul.L_ref * (s.propul.CG - s.propul.CP) - damp * r;
+    // Static restoring moment from the aero force acting at the CP: M = d x F,
+    // with arm d = ((CG-CP)*L_ref, 0, 0) and F_aero = (0,-N_yaw,-N_pitch). This
+    // yields OPPOSITE signs for pitch vs yaw (the classic Cm_alpha<0 / Cn_beta>0
+    // asymmetry, because d(AoA)/dt=+q but d(beta)/dt=-r). Plus body-rate damping.
+    const double arm = s.propul.L_ref * (s.propul.CG - s.propul.CP);
+    s.rotation.M     =  arm * N_pitch - damp * q;   // pitch moment about body y
+    s.rotation.M_yaw = -arm * N_yaw   - damp * r;   // yaw moment about body z
 
-    // Roll (Step 6): no static forcing yet, just aerodynamic roll damping so the
-    // axial channel is live -- a spun-up body bleeds its roll rate off.
-    const double roll_damp = 0.25 * rho * s.v_total * s.propul.A *
-                             (s.props.radius * s.props.radius) * s.propul.C_mq;
-    const double M_x = -roll_damp * p;
+    // Roll (Step 6): canted-fin forcing (fin_cant=0 => none) opposed by aero roll
+    // damping. Uses the same L_ref reference as pitch/yaw (not the tiny radius) so
+    // the steady roll rate stays physical and within the integrator's dt stability
+    // limit -- a radius arm makes p spin to hundreds of rad/s and the gyroscopic
+    // nutation then outruns dt=0.01 and blows up.
+    const double roll_force = s.propul.Cn_alpha * q_bar * s.propul.A *
+                              s.propul.L_ref * s.propul.fin_cant;
+    const double M_x = roll_force - damp * p;
     const double M_y = s.rotation.M;
     const double M_z = s.rotation.M_yaw;
 
