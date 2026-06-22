@@ -53,7 +53,7 @@ Deriv DOF4Integrator::physics(RigidBody& s) {
 
     // --- Pitching moment + aerodynamic damping ---
     s.rotation.M = s.propul.Cn_alpha * q_bar * s.propul.A * s.propul.L_ref *
-                   s.rotation.AoA * (s.propul.CP - s.propul.CG);
+                   s.rotation.AoA * (s.propul.CG - s.propul.CP);
     s.rotation.M += 0.25 * rho * s.v_total * s.propul.A *
                     (s.propul.L_ref * s.propul.L_ref) * s.propul.C_mq * s.rotation.omega;
     s.props.I_yy = (1.0 / 12.0) * s.props.mass * (s.propul.L_ref * s.propul.L_ref);

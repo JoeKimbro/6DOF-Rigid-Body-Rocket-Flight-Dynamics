@@ -9,8 +9,9 @@ struct PropulsionProps {
     double CP = 0.0;
     double C_mq = 0.0;
     double CG = 0.0;
-    double L_ref = 0.0; 
-    double alpha = 0.0; 
+    double L_ref = 0.0;
+    double alpha = 0.0;
+    double fin_cant = 0.0; // canted-fin roll input [rad]; 0 = no roll forcing
 };
 
 //  The chain: AoA → normal force (via Cn_alpha) → pitching moment (via CP−CG arm) → angular acceleration (via I_yy) → omega → theta.
