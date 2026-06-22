@@ -26,69 +26,80 @@ Deriv6DOF DOF6Integrator::physics(RigidBody& s) {
     Fy += drag_coeff * s.vertical.velocity;                        // drag opposes velocity
     Fx += drag_coeff * s.horizontal.velocity;
     Fz += drag_coeff * s.depth.velocity;
-    double Ty = thrust * std::cos(s.theta);   // vertical part
-    double Th = thrust * std::sin(s.theta);   // horizontal magnitude
-    Fy += Ty;
-    Fx += Th * std::cos(s.phi);
-    Fz += Th * std::sin(s.phi);
+    // Thrust acts along the body nose (body +x). Rotate that body-axis vector
+    // into the world frame with the attitude quaternion instead of theta/phi.
+    Vec3 nose = bodyToWorld(s.sixStates, {1.0, 0.0, 0.0});
+    Fx += thrust * nose.x;
+    Fy += thrust * nose.y;
+    Fz += thrust * nose.z;
 
     double q_bar = 0.5 * rho * s.v_total * s.v_total;              // dynamic pressure
-    // Aerodynamic angles: each body angle vs velocity angle in the same plane
-    s.rotation.AoA = s.theta - std::atan2(s.horizontal.velocity, s.vertical.velocity);
-    const double v_h = std::sqrt(s.horizontal.velocity * s.horizontal.velocity +
-                                 s.depth.velocity * s.depth.velocity);
-    if (v_h > 1e-6) {
-        s.rotation.Sideslip = s.phi - std::atan2(s.depth.velocity, s.horizontal.velocity);
+
+    // --- Aerodynamic angles from the BODY-frame velocity (Step 4) ---
+    // Rotate world velocity into the body frame: u along nose (+x), v (+y), w (+z).
+    Vec3 v_body = worldToBody(s.sixStates,
+                              {s.horizontal.velocity, s.vertical.velocity, s.depth.velocity});
+    const double u = v_body.x, v = v_body.y, w = v_body.z;
+    if (s.v_total > 1e-6) {
+        s.rotation.AoA      = std::atan2(w, u);   // angle of attack  (body x-z plane)
+        s.rotation.Sideslip = std::atan2(v, u);   // sideslip         (body x-y plane)
     } else {
+        s.rotation.AoA = 0.0;
         s.rotation.Sideslip = 0.0;
     }
 
-    double N_pitch = s.propul.Cn_alpha * q_bar * s.propul.A * s.rotation.AoA;
-    double N_yaw   = s.propul.Cn_alpha * q_bar * s.propul.A * s.rotation.Sideslip;
+    // Normal/side force magnitudes (linear in the aero angle).
+    const double N_pitch = s.propul.Cn_alpha * q_bar * s.propul.A * s.rotation.AoA;
+    const double N_yaw   = s.propul.Cn_alpha * q_bar * s.propul.A * s.rotation.Sideslip;
+    s.rotation.N_pitch = N_pitch;
+    s.rotation.N_yaw   = N_yaw;
 
-    // Pitch normal: vertical + horizontal, then rotate horizontal by azimuth (same as thrust)
-    const double N_pitch_h = N_pitch * std::cos(s.theta);
-    Fy -= N_pitch * std::sin(s.theta);
-    Fx += N_pitch_h * std::cos(s.phi);
-    Fz += N_pitch_h * std::sin(s.phi);
-
-    // Yaw normal: horizontal side force, rotated by azimuth
-    Fx += -N_yaw * std::sin(s.phi);
-    Fz +=  N_yaw * std::cos(s.phi);
+    // Aero force lives in the body transverse plane, opposing the cross-velocity,
+    // then rotates into the world frame to join gravity/drag/thrust (Step 3).
+    Vec3 F_aero = bodyToWorld(s.sixStates, {0.0, -N_yaw, -N_pitch});
+    Fx += F_aero.x;
+    Fy += F_aero.y;
+    Fz += F_aero.z;
 
     s.vertical.netForce      = Fy;
     s.horizontal.netForce    = Fx;
-    s.vertical.acceleration  = Fy / s.props.mass;
-    s.depth.netForce     = Fz;      
-    s.depth.acceleration = Fz / s.props.mass;
+    s.depth.netForce         = Fz;
+    s.vertical.acceleration   = Fy / s.props.mass;
     s.horizontal.acceleration = Fx / s.props.mass;
+    s.depth.acceleration      = Fz / s.props.mass;
 
-    // --- Pitching moment + aerodynamic damping ---
-    s.rotation.M = s.propul.Cn_alpha * q_bar * s.propul.A * s.propul.L_ref *
-                   s.rotation.AoA * (s.propul.CG - s.propul.CP);
-    s.rotation.M -= 0.25 * rho * s.v_total * s.propul.A * (s.propul.L_ref * s.propul.L_ref) * s.propul.C_mq * s.rotation.omega;
+    // --- Moments about the body axes ---
     s.props.I_yy = (1.0 / 12.0) * s.props.mass * (s.propul.L_ref * s.propul.L_ref);
-    s.rotation.theta_ddot = s.rotation.M / s.props.I_yy;
+    const double I_t = s.props.I_yy;                                        // transverse (pitch = yaw)
+    const double I_x = 0.5 * s.props.mass * s.props.radius * s.props.radius; // axial (roll)
 
-    // Aerodynamic restoring yawing moment
-    s.rotation.M_yaw = s.propul.Cn_alpha * q_bar * s.propul.A * s.propul.L_ref * s.rotation.Sideslip * (s.propul.CG - s.propul.CP); 
-    // Aerodynamic yaw damping (opposes yaw rotation rate)
-    s.rotation.M_yaw -= 0.25 * rho * s.v_total * s.propul.A * (s.propul.L_ref * s.propul.L_ref) * s.propul.C_mq * s.rotation.omega_phi;
-    // Assuming a symmetric cylindrical rocket body where I_zz around the yaw axis equals I_yy
-    s.rotation.phi_ddot = s.rotation.M_yaw  / s.props.I_yy; 
-    s.rotation.N_pitch = s.propul.Cn_alpha * q_bar * s.propul.A * s.rotation.AoA;
-    s.rotation.N_yaw   = s.propul.Cn_alpha * q_bar * s.propul.A * s.rotation.Sideslip;
+    const double p = s.sixStates.p, q = s.sixStates.q, r = s.sixStates.r;
+    const double damp = 0.25 * rho * s.v_total * s.propul.A *
+                        (s.propul.L_ref * s.propul.L_ref) * s.propul.C_mq;
 
-    const double I_t = s.props.I_yy;                    
-    const double I_x = 0.5 * s.props.mass * s.props.radius*s.props.radius;  // axial — needs a radius
+    // Static restoring moment (CP behind CG => stabilizing) + rate damping, now
+    // driven by the BODY rates q (pitch) and r (yaw) instead of theta/phi rates.
+    s.rotation.M     = N_pitch * s.propul.L_ref * (s.propul.CG - s.propul.CP) - damp * q;
+    s.rotation.M_yaw = N_yaw   * s.propul.L_ref * (s.propul.CG - s.propul.CP) - damp * r;
 
-    const double M_x = 0.0;              // no roll forcing yet
-    const double M_y = s.rotation.M;     // pitch moment 
-    const double M_z = s.rotation.M_yaw; // yaw moment   
-    const double p = s.sixStates.p;
-    const double q = s.sixStates.q;
-    const double r = s.sixStates.r;
-    
+    // Roll (Step 6): no static forcing yet, just aerodynamic roll damping so the
+    // axial channel is live -- a spun-up body bleeds its roll rate off.
+    const double roll_damp = 0.25 * rho * s.v_total * s.propul.A *
+                             (s.props.radius * s.props.radius) * s.propul.C_mq;
+    const double M_x = -roll_damp * p;
+    const double M_y = s.rotation.M;
+    const double M_z = s.rotation.M_yaw;
+
+    s.rotation.theta_ddot = M_y / I_t;   // diagnostics only
+    s.rotation.phi_ddot   = M_z / I_t;
+
+    // theta/phi are now DERIVED from the quaternion for display, not integrated (Step 5).
+    // (reuses `nose`, the body +x axis in world coords, computed above for thrust)
+    s.theta = std::atan2(std::sqrt(nose.x * nose.x + nose.z * nose.z), nose.y); // from vertical
+    s.phi   = std::atan2(nose.z, nose.x);                                       // azimuth
+    s.rotation.omega     = q;   // display the body rates in the old fields
+    s.rotation.omega_phi = r;
+
 
     // --- Package the derivatives of the state vector ---
     Deriv6DOF d;
@@ -98,16 +109,18 @@ Deriv6DOF DOF6Integrator::physics(RigidBody& s) {
     d.dvx    = s.horizontal.acceleration;
     d.dz  = s.depth.velocity;       
     d.dvz = s.depth.acceleration; 
-    d.dtheta = s.rotation.omega;
-    d.domega = s.rotation.theta_ddot;
     d.dfuel  = dfuel;
-    d.dphi = s.rotation.omega_phi;    
-    d.domega_phi = s.rotation.phi_ddot;
+    // theta/phi/omega/omega_phi are no longer integrated -- attitude lives in the
+    // quaternion + body rates (p,q,r). These stay zero (Step 5).
+    d.dtheta = 0.0;
+    d.domega = 0.0;
+    d.dphi = 0.0;
+    d.domega_phi = 0.0;
     // Quaternion Evolutions
-    d.quatW = 0.0;
-    d.quatX = 0.0;
-    d.quatZ = 0.0;
-    d.quatY = 0.0;
+    d.quatW = -0.5 * ((s.sixStates.qx * p) + (s.sixStates.qy * q) + (s.sixStates.qz * r));
+    d.quatX = 0.5 * ((s.sixStates.qw * p) + (s.sixStates.qy * r) - (s.sixStates.qz * q));
+    d.quatZ =  0.5 * ((s.sixStates.qw * r) + (s.sixStates.qx * q) - (s.sixStates.qy * p));
+    d.quatY =  0.5 * ((s.sixStates.qw * q) + (s.sixStates.qz * p) - (s.sixStates.qx * r));
     // New Body Angular Rates
     d.angularR =  (M_z + (I_x - I_t) * p * q) / I_t;
     d.angularQ = (M_y + (I_t - I_x) * r * p) / I_t;
@@ -168,6 +181,12 @@ void DOF6Integrator::stepDOF6(RigidBody& body) {
     body.depth.velocity += w * (k1.dvz + 2.0*k2.dvz + 2.0*k3.dvz + k4.dvz);
     body.phi += w * (k1.dphi + 2.0 * k2.dphi + 2.0 * k3.dphi + k4.dphi);
     body.rotation.omega_phi += w * (k1.domega_phi + 2.0 * k2.domega_phi + 2.0 * k3.domega_phi + k4.domega_phi);
+    double n = std::sqrt(body.sixStates.qw*body.sixStates.qw +
+        body.sixStates.qx * body.sixStates.qx + body.sixStates.qy * body.sixStates.qy + body.sixStates.qz*body.sixStates.qz);
+        body.sixStates.qw /= n;
+        body.sixStates.qx /= n;
+        body.sixStates.qy /= n;
+        body.sixStates.qz /= n;
 
     if (body.props.fuelMass < 0.0) body.props.fuelMass = 0.0;
     body.props.mass = body.props.dryMass + body.props.fuelMass;

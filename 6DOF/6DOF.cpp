@@ -50,7 +50,27 @@ void DOF6::run(RigidBody& body) {
     body.theta = body.theta_deg * M_PI / 180.0;
     std::cout << "Input launch compass heading (Azimuth, in degrees. 90 = East, 180 = South, 360/0 = North):\n";
     std::cin >> body.phi_deg;
-    body.phi = body.phi_deg * M_PI / 180.0; 
+    body.phi = body.phi_deg * M_PI / 180.0;
+
+    // Initialize the attitude quaternion from the launch angles so the body
+    // nose (+x) starts pointing along (sinθ·cosφ, cosθ, sinθ·sinφ) -- i.e. it
+    // matches the old theta/phi thrust direction at t=0.
+    // q0 = q_yaw(φ about world -y) ⊗ q_pitch((π/2 - θ) about world +z).
+    {
+        const double a  = M_PI / 2.0 - body.theta;          // pitch up from horizontal
+        const double cp = std::cos(a * 0.5), sp = std::sin(a * 0.5);
+        const double cy = std::cos(body.phi * 0.5), sy = std::sin(body.phi * 0.5);
+        body.sixStates.qw =  cy * cp;
+        body.sixStates.qx = -sy * sp;
+        body.sixStates.qy = -sy * cp;
+        body.sixStates.qz =  cy * sp;
+        const double n = std::sqrt(body.sixStates.qw * body.sixStates.qw +
+                                   body.sixStates.qx * body.sixStates.qx +
+                                   body.sixStates.qy * body.sixStates.qy +
+                                   body.sixStates.qz * body.sixStates.qz);
+        body.sixStates.qw /= n; body.sixStates.qx /= n;
+        body.sixStates.qy /= n; body.sixStates.qz /= n;
+    }
     std::cout << "Provide CP (Center of Pressure) Coefficient: \n";
     std::cin >> body.propul.CP;
     std::cout << "Provide CG (Center of Gravity) Coefficient: \n";
@@ -87,9 +107,14 @@ void DOF6::run(RigidBody& body) {
                   << " omega=" << body.rotation.omega
                   << " theta_ddot=" << body.rotation.theta_ddot
                   << " Yaw Angle: " << body.phi
-                  << " Yaw Rate: " << body.rotation.omega_phi
+                  << " Yaw Rate (r): " << body.rotation.omega_phi
+                  << " Roll Rate (p): " << body.sixStates.p
                   << " Sideslip: " << body.rotation.Sideslip
                   << " M_yaw: " << body.rotation.M_yaw
+                  << " |q|: " << std::sqrt(body.sixStates.qw*body.sixStates.qw +
+                                           body.sixStates.qx*body.sixStates.qx +
+                                           body.sixStates.qy*body.sixStates.qy +
+                                           body.sixStates.qz*body.sixStates.qz)
                   << "\n";
     }
 }
