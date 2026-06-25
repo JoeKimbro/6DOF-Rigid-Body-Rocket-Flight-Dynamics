@@ -3,7 +3,7 @@ name: Deploy dashboard to GitHub Pages
 # Builds the C++ physics core to WebAssembly and publishes web/ to Pages.
 on:
   push:
-    branches: [main]
+    branches: [main, liveShowing]
   workflow_dispatch:
 
 # Permissions the official Pages deploy needs.
