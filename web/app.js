@@ -18,7 +18,7 @@ const FIELDS = [
 // validated translation + pitch/yaw regime.
 const PRESETS = {
   sounding: { dryMass:5, fuelMass:5, mass_flow_rate:2.5, Ve:2500, Cd:0.5, A:0.0079,
-    startAltitude:0, total_time:80, theta_deg:5, phi_deg:90, CP:0.6, CG:0.5,
+    startAltitude:0, total_time:100, theta_deg:5, phi_deg:90, CP:0.6, CG:0.5,
     L_ref:2, C_mq:5, Cn_alpha:10, radius:0.05, fin_cant_deg:0 },
   lofted: { dryMass:8, fuelMass:12, mass_flow_rate:4, Ve:3050, Cd:0.45, A:0.0079,
     startAltitude:0, total_time:160, theta_deg:35, phi_deg:90, CP:0.62, CG:0.5,
@@ -66,9 +66,77 @@ function readParams() {
   return p;
 }
 
+// Check the inputs before running. Returns { errors, warnings }:
+//  - errors   : block the run entirely (physically impossible / nonsensical).
+//  - warnings : let the run proceed but flag a risky / surprising configuration.
+function validateParams(p) {
+  const errors = [], warnings = [];
+  const g = 9.81;
+
+  // Every field must be a finite number (readParams already coerces, but a raw
+  // NaN from a blank required box should still be caught explicitly).
+  for (const f of FIELDS) {
+    if (!Number.isFinite(p[f])) errors.push(`"${f}" is not a valid number.`);
+  }
+
+  // Quantities that must be strictly positive for the physics to make sense.
+  if (p.dryMass <= 0)     errors.push("Dry mass must be greater than 0.");
+  if (p.fuelMass < 0)     errors.push("Fuel mass can't be negative.");
+  if (p.mass_flow_rate < 0) errors.push("Burn rate can't be negative.");
+  if (p.Ve < 0)           errors.push("Exhaust velocity can't be negative.");
+  if (p.A <= 0)           errors.push("Reference area A must be greater than 0.");
+  if (p.radius <= 0)      errors.push("Radius must be greater than 0 (it sets the roll inertia).");
+  if (p.L_ref <= 0)       errors.push("Reference length L_ref must be greater than 0.");
+  if (p.total_time <= 0)  errors.push("Sim duration must be greater than 0.");
+
+  // Thrust-to-weight: a rocket sitting on the pad (startAltitude ~ 0) can only
+  // lift off if thrust exceeds weight. There's no launch rail in the model, so
+  // TWR < 1 just sinks the rocket below y=0 on the first step -> a non-flight.
+  const m0 = p.dryMass + p.fuelMass;
+  const thrust = p.mass_flow_rate * p.Ve;
+  if (m0 > 0 && p.startAltitude <= 0) {
+    const twr = thrust / (m0 * g);
+    if (thrust <= m0 * g) {
+      errors.push(
+        `Thrust-to-weight ratio is ${twr.toFixed(2)} (must exceed 1 to lift off). ` +
+        `Thrust ${(thrust/1e3).toFixed(0)} kN can't raise ${(m0*g/1e3).toFixed(0)} kN of weight — ` +
+        `raise burn rate or Ve, or reduce mass.`);
+    } else if (twr < 1.2) {
+      warnings.push(`Thrust-to-weight is only ${twr.toFixed(2)} — the rocket will climb slowly off the pad.`);
+    }
+  }
+
+  // Static stability: CP must sit behind CG (larger fraction) or the rocket tumbles.
+  if (p.CP < p.CG) {
+    warnings.push(
+      `Center of pressure (CP=${p.CP}) is ahead of center of gravity (CG=${p.CG}): ` +
+      `the rocket is statically unstable and will tumble.`);
+  }
+
+  // Roll stiffness: a fin cant beyond ~0.5 deg can outrun the RK4 step.
+  if (Math.abs(p.fin_cant_deg) > 0.5) {
+    warnings.push(
+      `Fin cant ${p.fin_cant_deg}° is above ~0.5° — the roll mode may diverge ` +
+      `(the sim stops cleanly if it does).`);
+  }
+  return { errors, warnings };
+}
+
 function runFlight() {
   if (!Module) return;
   const params = readParams();
+  const outcome = document.getElementById("outcome");
+
+  // Gate the run on input validity. Hard errors block it outright.
+  const { errors, warnings } = validateParams(params);
+  if (errors.length) {
+    outcome.hidden = false;
+    outcome.className = "outcome bad";
+    outcome.textContent = "Can't run — fix these inputs:\n" + errors.map(e => "• " + e).join("\n");
+    statusEl.textContent = "Invalid inputs.";
+    return;
+  }
+
   const t0 = performance.now();
   let json;
   try {
@@ -81,7 +149,7 @@ function runFlight() {
   const ms = (performance.now() - t0).toFixed(0);
   statusEl.textContent = `Computed ${traj.length} samples in ${ms} ms.`;
 
-  renderSummary();
+  renderSummary(warnings);
   renderPlots();
   rebuildTrajectory();
 }
@@ -89,25 +157,68 @@ function runFlight() {
 // ----------------------------------------------------------------------------
 // Summary stat cards.
 // ----------------------------------------------------------------------------
-function renderSummary() {
-  const apogee = Math.max(...traj.map(s => s.y));
-  const vmax = Math.max(...traj.map(s => s.speed));
+function renderSummary(warnings = []) {
   const last = traj[traj.length - 1];
+
+  // Apogee + the time it occurs (not just the max value).
+  let apIdx = 0;
+  for (let i = 1; i < traj.length; i++) if (traj[i].y > traj[apIdx].y) apIdx = i;
+  const apogee = traj[apIdx].y, apogeeT = traj[apIdx].t;
+
+  const vmax = Math.max(...traj.map(s => s.speed));
   const range = Math.hypot(last.x, last.z);
-  const flightTime = last.t;
   const maxRoll = Math.max(...traj.map(s => Math.abs(s.p)));
+
+  // Classify how the flight ENDED so every label is honest about what it shows.
+  // - landed:   last sample is at the ground (y ~ 0) -> "Flight time"/"Impact speed" are real.
+  // - truncated: ran out the sim window while still airborne -> these are cutoff values.
+  // - diverged:  stopped early without landing or hitting the window (numerical blow-up).
+  const totalTime = parseFloat(document.getElementById("total_time").value) || 0;
+  const landed    = last.y <= 1.0;
+  const truncated = !landed && last.t >= totalTime - 0.05;
+  const diverged  = !landed && !truncated;
+
+  const timeLabel  = landed ? "Flight time"  : "Time simulated";
+  const speedLabel = landed ? "Impact speed" : "Speed at cutoff";
+  const rangeLabel = landed ? "Downrange"    : "Downrange so far";
 
   const cards = [
     ["Apogee", apogee.toFixed(0), "m"],
+    ["Time to apogee", apogeeT.toFixed(1), "s"],
     ["Max speed", vmax.toFixed(0), "m/s"],
-    ["Flight time", flightTime.toFixed(1), "s"],
-    ["Downrange", range.toFixed(0), "m"],
+    [timeLabel, last.t.toFixed(1), "s"],
+    [rangeLabel, range.toFixed(0), "m"],
+    [speedLabel, last.speed.toFixed(0), "m/s"],
     ["Peak roll rate", maxRoll.toFixed(1), "rad/s"],
-    ["Impact speed", last.speed.toFixed(0), "m/s"],
   ];
   document.getElementById("summary").innerHTML = cards.map(
     ([k, v, u]) => `<div class="stat"><div class="k">${k}</div><div class="v">${v} <span class="u">${u}</span></div></div>`
   ).join("");
+
+  // Honest banner about the outcome of this run.
+  const outcome = document.getElementById("outcome");
+  outcome.hidden = false;
+  let cls, msg;
+  if (landed) {
+    cls = "ok";
+    msg = `Rocket landed at t = ${last.t.toFixed(1)} s, ${range.toFixed(0)} m downrange, hitting at ${last.speed.toFixed(0)} m/s.`;
+  } else if (truncated) {
+    cls = "warn";
+    msg = `⚠ Flight truncated — the rocket is still ${last.y.toFixed(0)} m up when the ${totalTime.toFixed(0)} s window ends. ` +
+      `"Flight time" and "impact speed" are not final yet; raise Sim duration to fly it down to impact.`;
+  } else { // diverged
+    cls = "bad";
+    msg = `⚠ Simulation stopped early at t = ${last.t.toFixed(1)} s due to numerical divergence ` +
+      `(usually too aggressive a fin cant). The trajectory beyond this point is not physical.`;
+  }
+
+  // Prepend any input warnings; a warning never downgrades a "bad" outcome.
+  if (warnings.length) {
+    msg = warnings.map(w => "⚠ " + w).join("\n") + "\n" + msg;
+    if (cls === "ok") cls = "warn";
+  }
+  outcome.className = "outcome " + cls;
+  outcome.textContent = msg;
 }
 
 // ----------------------------------------------------------------------------

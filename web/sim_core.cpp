@@ -105,10 +105,13 @@ std::vector<Sample> runSim(const SimParams& in) {
         integrator.refresh(body);
         if (!stateSane()) break;               // diverged -> keep the last good samples
         if (body.vertical.position <= 0.0) {   // impact -> stop
-            capture(i * dt);
+            capture((i + 1) * dt);
             break;
         }
-        if (i % 5 == 0) capture(i * dt);   // ~0.01 s cadence, same as the CLI
+        // The body has been advanced (i+1) times here, so its physical time is
+        // (i+1)*dt -- label the sample with that, not the pre-step i*dt (which
+        // lagged every timestamp by one dt).
+        if (i % 5 == 0) capture((i + 1) * dt);   // ~0.01 s cadence, same as the CLI
     }
 
     return out;

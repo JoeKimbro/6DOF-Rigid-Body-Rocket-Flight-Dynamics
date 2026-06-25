@@ -57,6 +57,9 @@
       <small class="hint">Roll is a stiff mode &mdash; cant &gt; ~0.5&deg; can diverge; the sim stops cleanly if it does.</small>
       <label>Start altitude <span>m</span><input id="startAltitude" type="number" step="any"></label>
       <label>Sim duration <span>s</span><input id="total_time" type="number" step="any"></label>
+      <small class="hint">Max time window, not the flight time. The flight ends at
+        impact; if the rocket is still airborne when this runs out, the run is cut
+        short &mdash; raise it to see the full descent.</small>
     </fieldset>
 
     <button id="launch" disabled>Loading physics&hellip;</button>
@@ -65,6 +68,7 @@
 
   <!-- ------------------------------ OUTPUTS ----------------------------- -->
   <section id="results">
+    <div id="outcome" class="outcome" hidden></div>
     <div id="summary" class="summary"></div>
 
     <div class="panel">

@@ -200,6 +200,24 @@ The 6DOF model is checked against three independent closed-form benchmarks (each
 | Steady-state roll | roll forcing vs damping | `p_ss = 2·Cn_α·V·δ / (L_ref·C_mq)` | 0.007% |
 | Pitch short-period | static stability + inertia | `ω_n = √(Cn_α·q_bar·A·L_ref·abs(CG-CP) / I_t)` | 0.020% |
 
+Additional cross-checks run against the **compiled WebAssembly core** (the exact
+build the dashboard uses), each compared to a closed-form or published reference:
+
+| Check | Reference | Result |
+|---|---|---|
+| Energy conservation in unpowered coast (drag off) | `E = g·y + ½v²` constant | drift < 0.001% |
+| Ballistic apogee (drag off) | `apogee = E/g` | exact (< 0.001%) |
+| Free-fall acceleration (no thrust/drag/aero) | `a = −9.81 m/s²` | exact |
+| Quaternion stays unit-norm over a full flight | `‖q‖ = 1` | error < 6e-7 |
+| ISA air density vs **U.S. Standard Atmosphere 1976** | published table | < 0.25% to 11 km, < 1% to 20 km |
+| Attitude faithfulness — does the rendered nose track the velocity? | stable rocket weathercocks (AoA ≈ 0) | max nose-vs-velocity angle 0.8° |
+
+The last check is what makes the **3D visualization trustworthy**: the view applies
+the same body→world quaternion the physics integrates, and a stable rocket holds its
+nose along the flight path — exactly as a real one does. Behavioral checks also pass:
+a statically **unstable** rocket (CP ahead of CG) tumbles to high angle of attack and
+crashes early, while the stable configuration flies a clean arc.
+
 ### Key Physics Principles
 
 - **Quaternions over Euler angles**: no gimbal lock, cheap to renormalize, and the single source of attitude truth.
@@ -209,10 +227,50 @@ The 6DOF model is checked against three independent closed-form benchmarks (each
 
 ---
 
-## Physics Scope
+## Assumptions & Limitations
 
-This simulator covers flight dynamics only. The following are out of scope:
+This is a **flight-dynamics** simulator built to learn the physics, not a
+production trajectory tool. It is **exact against the closed-form benchmarks above**,
+but it models the vehicle and environment with deliberate simplifications. Knowing
+these is essential to interpreting results correctly.
 
-- **Propulsion analysis** — chamber pressure, nozzle design, isentropic expansion. Thrust is taken as a computed input from `mass_flow_rate * Ve`
-- **Structural analysis** — the rigid body assumption means no flex, no slosh
-- **Standard atmosphere** — air density `rho` is fixed at 1.225 kg/m³ (sea level) for the early DOF stages. In 6DOF this is replaced by the International Standard Atmosphere (density varying with altitude)
+### Modeling assumptions
+
+| Area | Assumption | Consequence |
+|---|---|---|
+| **Structure** | Perfectly rigid body — no flex, bending, or fuel slosh | Standard 6DOF assumption; fine for rigid airframes |
+| **Drag** | A single **constant `Cd`** | No transonic/supersonic drag rise — the largest error source at high Mach |
+| **Aerodynamics** | **Linear** normal force `N = Cn_α·q̄·A·α`, constant `Cn_α` | Accurate at small angle of attack; **overshoots past ~15–20°** and is unphysical near a full flip (real curve behaves like `sin α`) |
+| **Propulsion** | Thrust = `mass_flow_rate · Ve`, constant while fuel remains, instant cutoff | No thrust curve, no ramp/tail-off, no pressure-thrust term, no throttle or TVC |
+| **Mass properties** | Solid-cylinder inertia; **`CG` and `CP` are fixed fractions of `L_ref`** | Static margin does **not** migrate as fuel burns, unlike a real vehicle |
+| **Gravity** | Constant `g = 9.81 m/s²`, flat non-rotating Earth | No altitude variation of `g`, no Earth curvature, no Coriolis — only valid for sub-orbital, local-range flights |
+| **Atmosphere** | ISA density to 20 km, clamped above; **no wind** | No gusts, shear, or weathercocking-into-wind; density held constant above 20 km |
+| **Flight** | Single stage, no recovery, no active control or guidance | No staging, parachutes, or closed-loop steering |
+
+### Accuracy & numerical envelope
+
+- **Roll is numerically stiff.** Axial inertia `I_x = ½·m·r²` is tiny, so a fin cant
+  above **~0.5°** spins the body fast enough that its gyroscopic nutation outruns the
+  explicit RK4 step and the solution diverges. The core detects this and stops cleanly
+  (the dashboard flags it as a divergence) rather than emitting NaN.
+- **High-angle-of-attack / tumbling flight is qualitatively right but quantitatively
+  off** — an unstable rocket correctly tumbles and crashes early, but the linear aero
+  model exaggerates forces once past ~90° AoA.
+- **Do not expect digit-matching against full tools** (OpenRocket, RASAero II). Because
+  drag here is a constant `Cd` rather than `Cd(Mach)`, apogee for a fast (transonic+)
+  rocket will differ. Even OpenRocket and RASAero routinely disagree by ~10% on apogee,
+  and both miss real flights by several percent. The right standard for this project is
+  **exact against closed-form physics** and **correct in trend and behavior** against
+  the full tools — both of which it meets.
+- **Cross-checking yourself:** model the same rocket in
+  [OpenRocket](https://openrocket.info/) (free, open source), and for the cleanest
+  apples-to-apples comparison force its drag to a constant `Cd` matching yours and
+  launch straight up — that removes the `Cd(Mach)` difference. Center-of-pressure /
+  static-stability behavior can be checked against the **Barrowman equations**.
+
+### Explicitly out of scope
+
+- **Propulsion internals** — chamber pressure, nozzle/isentropic expansion (thrust is an input via `mass_flow_rate · Ve`)
+- **Structural analysis** — loads, flex, slosh (rigid-body assumption)
+- **Aeroheating, mass ablation, plume effects**
+- **6DOF wind/turbulence, Earth rotation, and gravity variation**

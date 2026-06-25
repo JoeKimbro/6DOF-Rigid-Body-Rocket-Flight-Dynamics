@@ -87,6 +87,18 @@ select { background: var(--bg); border: 1px solid var(--edge); color: var(--ink)
 .status { color: var(--muted); min-height: 1.2em; margin: 8px 0 0; font-size: 12px; }
 
 /* ---- results ---- */
+.outcome {
+  border-radius: 8px;
+  padding: 9px 12px;
+  margin-bottom: 14px;
+  font-size: 12.5px;
+  border: 1px solid var(--edge);
+  white-space: pre-line;   /* render the \n-separated warning lines */
+}
+.outcome.ok   { background: #102218; border-color: #1f5135; color: #84d6a8; }
+.outcome.warn { background: #2a1d0c; border-color: #6b4a16; color: #f0b65b; }
+.outcome.bad  { background: #2a1115; border-color: #6b2027; color: #f08a92; }
+
 .summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
