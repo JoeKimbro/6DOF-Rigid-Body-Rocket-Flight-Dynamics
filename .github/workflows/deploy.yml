@@ -1,0 +1,47 @@
+name: Deploy dashboard to GitHub Pages
+
+# Builds the C++ physics core to WebAssembly and publishes web/ to Pages.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Permissions the official Pages deploy needs.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let one deploy finish before the next starts.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+
+      - name: Build WASM
+        run: ./web/build.sh
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web   # only the static site (html/js/css + sim.js + sim.wasm)
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

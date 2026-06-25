@@ -1,2 +1,7 @@
 .claude.md
 .claude/
+
+# Compiled CLI sim binaries (already tracked historically; ignore fresh builds)
+# WebAssembly build outputs -- rebuilt by web/build.sh and in CI, never committed.
+web/sim.js
+web/sim.wasm

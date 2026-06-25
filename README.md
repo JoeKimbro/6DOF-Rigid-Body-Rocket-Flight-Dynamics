@@ -10,6 +10,21 @@ A simulator that takes real rocket parameters as inputs and simulates altitude, 
 
 ---
 
+## Interactive Web Dashboard
+
+The 6DOF physics is also compiled to **WebAssembly** and driven from a browser
+dashboard: enter rocket parameters, hit **Launch**, and watch the flight compute
+and plot — a 3D trajectory with the rocket's actual quaternion attitude plus 2D
+graphs of altitude, ground track, speed, angle of attack/sideslip, attitude, and
+body rates. It runs entirely client-side (no server) and is hosted on GitHub
+Pages. See [`web/README.md`](web/README.md) for the architecture and build steps.
+
+```bash
+./web/build.sh && cd web && python3 -m http.server 8000   # then open localhost:8000
+```
+
+---
+
 ## What is a Rigid Body?
 
 The rocket is treated as a perfectly rigid object — every part moves together, no structural deformation, no fuel slosh. This is the standard assumption in all practical 6DOF flight simulators and makes the equations of motion tractable.

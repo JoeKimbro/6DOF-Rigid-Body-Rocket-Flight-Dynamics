@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>6DOF Rocket Flight Simulator</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🚀</text></svg>" />
+<link rel="stylesheet" href="style.css" />
+<!-- Plotly for 2D diagnostic plots, three.js for the 3D trajectory + attitude -->
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>6DOF Rocket Flight Simulator</h1>
+  <p class="sub">Full rigid-body rocket dynamics &mdash; RK4, quaternion attitude, ISA atmosphere.
+     The physics is the project's C++ core compiled to WebAssembly and run entirely in your browser.</p>
+</header>
+
+<main>
+  <!-- ------------------------------ INPUTS ------------------------------ -->
+  <section id="controls">
+    <div class="preset-row">
+      <label for="preset">Preset</label>
+      <select id="preset">
+        <option value="sounding">Sounding rocket</option>
+        <option value="lofted">Lofted / high angle</option>
+        <option value="maxrange">Max range (45&deg;)</option>
+      </select>
+    </div>
+
+    <fieldset>
+      <legend>Mass &amp; Propulsion</legend>
+      <label>Dry mass <span>kg</span><input id="dryMass" type="number" step="any"></label>
+      <label>Fuel mass <span>kg</span><input id="fuelMass" type="number" step="any"></label>
+      <label>Burn rate <span>kg/s</span><input id="mass_flow_rate" type="number" step="any"></label>
+      <label>Exhaust velocity Ve <span>m/s</span><input id="Ve" type="number" step="any"></label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Aerodynamics &amp; Geometry</legend>
+      <label>Drag coeff Cd <span></span><input id="Cd" type="number" step="any"></label>
+      <label>Ref. area A <span>m&sup2;</span><input id="A" type="number" step="any"></label>
+      <label>Normal-force slope Cn&alpha; <span>/rad</span><input id="Cn_alpha" type="number" step="any"></label>
+      <label>Damping C_mq <span></span><input id="C_mq" type="number" step="any"></label>
+      <label>Ref. length L_ref <span>m</span><input id="L_ref" type="number" step="any"></label>
+      <label>Radius <span>m</span><input id="radius" type="number" step="any"></label>
+      <label>Center of pressure CP <span>frac</span><input id="CP" type="number" step="any"></label>
+      <label>Center of gravity CG <span>frac</span><input id="CG" type="number" step="any"></label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Launch</legend>
+      <label>Launch angle &theta; <span>deg from vert.</span><input id="theta_deg" type="number" step="any"></label>
+      <label>Azimuth &phi; <span>deg</span><input id="phi_deg" type="number" step="any"></label>
+      <label>Fin cant <span>deg</span><input id="fin_cant_deg" type="number" step="any"></label>
+      <small class="hint">Roll is a stiff mode &mdash; cant &gt; ~0.5&deg; can diverge; the sim stops cleanly if it does.</small>
+      <label>Start altitude <span>m</span><input id="startAltitude" type="number" step="any"></label>
+      <label>Sim duration <span>s</span><input id="total_time" type="number" step="any"></label>
+    </fieldset>
+
+    <button id="launch" disabled>Loading physics&hellip;</button>
+    <p id="status" class="status"></p>
+  </section>
+
+  <!-- ------------------------------ OUTPUTS ----------------------------- -->
+  <section id="results">
+    <div id="summary" class="summary"></div>
+
+    <div class="panel">
+      <h2>3D Trajectory &amp; Attitude</h2>
+      <div id="view3d"></div>
+      <div class="scrubber">
+        <button id="play">&#9654; Play</button>
+        <input id="time" type="range" min="0" max="0" value="0" step="1" disabled>
+        <span id="timelabel">t = 0.00 s</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="panel"><div id="plot_alt"></div></div>
+      <div class="panel"><div id="plot_ground"></div></div>
+      <div class="panel"><div id="plot_speed"></div></div>
+      <div class="panel"><div id="plot_aero"></div></div>
+      <div class="panel"><div id="plot_attitude"></div></div>
+      <div class="panel"><div id="plot_rates"></div></div>
+    </div>
+  </section>
+</main>
+
+<script src="sim.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
